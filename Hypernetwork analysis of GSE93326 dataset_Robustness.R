@@ -338,8 +338,7 @@ hm<-heatmap.2(hyp, cexRow=1, cexCol=1, margins=c(2,2), trace="none", xlab = "Dif
 # D = diagonal only
 
 G<-hyp # G is the hypernetwork matrix
-diag(G)<-0  # Set the diagonal to 0 as it obscures the signal from the rest of the matrix
-I<-matrix(0,nrow=nrow(G),ncol=ncol(G));diag(I)<-1 #I is the identity matrix (0s with diagonal of 1s)
+I<-matrix(0,nrow=nrow(G),ncol=ncol(G));diag(I)<-diag(G) #I is the identity matrix but the diagonals are set to the diagonals of G rather than 1s
 
 GIG<-(G-I)*G
 DGIG<-matrix(0,nrow=nrow(G),ncol=ncol(G));diag(DGIG)<-diag(GIG)
