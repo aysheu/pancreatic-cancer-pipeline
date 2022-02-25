@@ -84,7 +84,6 @@ MCT_TMM$EnsemblID=rownames(MCT_TMM) #Make sure that when this column is added, a
 
 #Next assign the Ensembl ID column as a factor
 MCT_TMM$EnsemblID<-factor(MCT_TMM$EnsemblID)
-MCT_TMM2$EnsemblID<-factor(MCT_TMM2$EnsemblID)
 
 # Conversion to long format
 library(tidyr)
@@ -113,6 +112,9 @@ data_long$SurvivalStatus <- samples$Group[match(data_long$sampleID, samples$Samp
 # violin plot
 # reference http://www.sthda.com/english/wiki/ggplot2-violin-plot-quick-start-guide-r-software-and-data-visualization
 library(ggplot2) 
+
+tiff("Violin plots of four MCTs in STS and LTS_10Feb22.tiff", units="in", width=10, height=5, res=300)
+
 p3 <- ggplot(data_long, aes(x=GeneID, y=Count, fill=SurvivalStatus) , trim = FALSE , position = position_dodge(0.9))
 
 p3 + geom_violin()  + stat_summary(fun=median, geom="point", shape=23, size=2 , color="red") + 
@@ -126,7 +128,7 @@ p3 + geom_violin()  + stat_summary(fun=median, geom="point", shape=23, size=2 , 
   annotate(geom="text", x=2.5, y=-1.8, label="p-Values", color="black", size=4) +
   scale_y_continuous(limits = c(-2,8)) +
   labs(title="")
-
+dev.off()
 
 # GENERATE A HEATMAP TO SHOW EXPRESSION OF DE-ECMs IN STROMA (N=502) IN STS and LTS SUBJECTS
 source("F:/Latif Lab back up/AYSHE/PDAC/Differential expression analysis/heatmap3.R")
@@ -167,9 +169,6 @@ clab=tissue_colour
 clab<-as.data.frame(clab)
 colnames(clab)<-"STS vs LTS"
 clab<-as.matrix(clab)
-# sample_type<- as.factor(samples$Group)
-# dendog = cluster_within_group(hm, sample_type)
-order.dendrogram(dendog)
 
 # As we are using log-normalised data which has not been z-scored, we are normalising the data by row below
 library(gplots)
@@ -181,6 +180,10 @@ legend("topright",legend=c("STS","LTS"),
 
 # Use this when grouping STS separately than LTS.
 #ref for grouping of columns/samples: https://biocorecrg.github.io/CRG_RIntroduction/heatmap-2-function-from-gplots-package.html
+
+tiff("Heatmap of ECMs differentially expressed in stroma_STS vs LTS with FDR of 0.05_col separated_10Feb22.tiff", units = "in", width = 10, height = 7, res=300)
+
 heatmap.3(hm, col=bluered, ColSideColors = clab, ColSideColorsSize=2, Rowv=TRUE, key =TRUE, scale="row",trace="none", dendrogram="row", cexRow=1, cexCol=1, density.info="none", margin=c(10,15), Colv = FALSE) 
 legend("topright",legend=c("STS","LTS"),
        fill=c("magenta","seagreen"), border=FALSE, bty="n", y.intersp = 1, cex=1)
+dev.off()
