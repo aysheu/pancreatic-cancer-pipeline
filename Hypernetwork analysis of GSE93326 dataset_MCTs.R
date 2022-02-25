@@ -65,7 +65,10 @@ hyp<-binary%*%t(binary) # Generate the hypernetwork by multiplying the binary ma
 hm<-heatmap.2(hyp, cexRow=1, cexCol=1, margins=c(10,10), srtCol=45, trace="none") # Generate a heatmap from the hypernetwork matrix, save the heatmap object as it contains dendrograms.Exclude the trace which aims to separates rows and columns
 
 # Customise heatmap axes labels
+tiff("Hypernetwork heatmap of MCTs_r-value threshold of 0.2 as SD_10Feb22.tiff", units = "in", width = 10, height = 7, res=300)
+
 hm<-heatmap.2(hyp, cexRow=1, cexCol=1, margins=c(2,2), trace="none", xlab = "Differentially expressed MCT genes", ylab = "Differentially expressed MCT genes", labRow = FALSE, labCol = FALSE)
+dev.off()
 
 # Create a class hclust
 dendrogram<-as.hclust(hm$rowDendrogram) 
@@ -133,6 +136,7 @@ names(Matrisome)[1]<- "Gene.name"
 
 # Matrisome_with_ITG.KRTs<-rbind(Matrisome,Integrins,Keratins) 
 Matrisome_with_ITG.KRTs<-rbind(Matrisome,Integrins,Keratins) 
+write.csv(Matrisome_with_ITG.KRTs, "All ECM genes from the primary dataset.csv")
 
 # Match the gene names of the "nonDE_name" dataset with the genes in the matrisome dataset
 nonDE_names1['Matrisome.match'] <- NA
