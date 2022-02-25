@@ -272,11 +272,18 @@ legend("topright",legend=c("Stroma","Epithelium"),
 samples<-read.table("./GSE93326_combined 57 stroma_design.csv",sep = ",", header=T) #to be prepared
 
 # Read the count table containing all samples and genes and clean data to remove NAs
+dat<-read.table("./GSE93326,Count_S vs E_combined with additional 57 stroma_EdgeR.txt",sep=c("\t"),header=T)
 counts<-dat[-1] # Remove the first column of dat which includes the Ensembl gene IDs
 counts<-dat[-c(60609:60613), -1] # Omit the last 4 rows of the count table as counts are NA
 rownames(counts)<-dat[-c(60609:60613),1] #Assign the first column of dat as rownames to counts table
 
+ENSG<-dat[,1] # select list of gene IDs
+ensembl = useMart("ensembl",dataset="hsapiens_gene_ensembl") #Create a Mart object. This connects to biomart's ensembl database and the specified dataset
+res<-getBM(attributes=c('ensembl_gene_id','external_gene_name'), filters = 'ensembl_gene_id', values = ENSG, mart = ensembl) #Retrieve gene names from the BioMart database
 counts<-counts[na.omit(match(res$ensembl_gene_id,rownames(counts))),] #Remove genes with IDs which cannot be annotated
+
+# Create a design matrix for DGE analysis
+design<-model.matrix(~samples$Group)
 
 #Create DGE object and specify counts object and grouping variable
 DGE<-DGEList(counts=counts,group=samples$Group) #Specify counts object and grouping variable
@@ -293,6 +300,9 @@ DGE <- estimateDisp(DGE, design) # Estimate dispersions
 
 et <- exactTest(DGE) #Calculate differential expression. This finds genes dif. expressed in stroma vs epithelium in the dataset
 et$table$Gene_name<-res$external_gene_name[na.omit(match(rownames(et$table),res$ensembl_gene_id))] # assign gene names
+
+#Extract normalised log2TMM data 
+cpm_data<-cpm(DGE,log=T)
 
 #Extract the list that are significant p< 0.05
 p<-topTags(et,n=Inf,adjust.method="BH") #Extract the DEGs with p-value adjusted for multiple testing
@@ -357,6 +367,9 @@ data_long$Age <- samples$Age[match(data_long$sampleID, samples$SampleID)]
 # Generate the violin plot
 # reference http://www.sthda.com/english/wiki/ggplot2-violin-plot-quick-start-guide-r-software-and-data-visualization
 library(ggplot2) 
+
+tiff("Violin plot of MCTs in stroma-epithelium_edited for paper_10Feb22.tiff", units="in", width=12, height=6, res=300)
+
 p3 <- ggplot(data_long, aes(x=GeneID, y=Count, fill=TissueType) , trim = FALSE , position = position_dodge(0.9))
 
 p3 + geom_violin()  + stat_summary(fun=median, geom="point", shape=23, size=2 , color="red") + 
@@ -378,7 +391,7 @@ p3 + geom_violin()  + stat_summary(fun=median, geom="point", shape=23, size=2 , 
   annotate(geom="text", x=7, y=-4.0, label="FDR Values", color="black") +
   scale_y_continuous(limits = c(-4,10)) +
   labs(title="")
-
+dev.off()
 
 # PEARSON CORRELATION ANALYSIS
 
