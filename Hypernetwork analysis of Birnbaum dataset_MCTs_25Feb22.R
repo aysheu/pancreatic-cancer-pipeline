@@ -1,0 +1,113 @@
+# The object 'data' is a matrix genes x samples
+# The object 'gene_list' is a list of genes (eg DEGs) which form the nodes of the hypernetwork
+
+setwd("F:/Latif Lab back up/AYSHE/PDAC/Birnbaum et al._Validation study")
+
+library(gplots) # heatmap.2 function required
+library(dplyr)
+
+# Data input - source is normalised and scaled (z-scored) transcriptomic data 
+data<-read.csv("./Birnbaum_matched epithelium stroma_scaledlogTMM_data.csv", sep = ",", header=T)
+
+# Read the list of all ECM genes from the primary dataset
+ECMs_primary<-read.csv("./All ECM genes from the primary dataset.csv", sep=",", header=T)
+
+# Create a vector of Ensembl IDs from the row names
+rownames<-rownames(data)
+head(rownames)
+
+# Create a data matrix
+matrix_data <-data.matrix(data)
+head(matrix_data)
+
+# Plot matrix_data
+plot(matrix_data)
+
+# Read the differentially expressed genes from the Maurer dataset
+DEGs<-read.csv("F:/Latif Lab back up/AYSHE/PDAC/Differential expression analysis/GSE93326/Genes with 5% FDR-adjusted p-values_matched plus additional stroma.csv", sep = ",", header=T)
+
+# Assign the first column of DEGs as row names
+rownames(DEGs)<-DEGs$X
+
+# Create a vector of row names from DEGs and convert it to a data frame
+DEGs_rowname<-rownames(DEGs)
+DEGs_rowname<-as.data.frame(DEGs_rowname)
+DEGs2<-cbind(DEGs_rowname,DEGs) # Column wise combination of DEGs_rowname and DEGs data frames
+rownames(DEGs2)<-1:nrow(DEGs2) # Give numeric values to row names
+
+# Filter out the MCTs from DEGs2 
+MCTs<-dplyr::filter(DEGs2, grepl("SLC16", Gene_name))
+
+# This assigns the names of DEGs to "gene_list" to be used when creating a correlation matrix downstream 
+#gene_list<-MCTs$DEGs_rowname
+gene_list<-MCTs$Gene_name
+
+# Generate a correlation matrix 
+# Correlation matrix based on complete dataset (epithelium and stroma)
+cor_matrix<-cor(t(matrix_data[na.omit(match(gene_list,rownames(matrix_data))),]), #correlate genes which match the list against all other genes (omit NA matches for instances where genes not found in matrix)
+                t(matrix_data[-na.omit(match(gene_list,rownames(matrix_data))),])) #NB the '-' in the square brackets on this line but absent from the previous line. This means exclude these entries (entries which match the gene list)
+
+# Examine the distribution of correlation matrix values for normality with a histogram
+hist(cor_matrix, main = paste(""), xlab = "Correlation r-values", col = "darkgrey", cex.lab=1.5, cex.axis=1.5) #ref: https://stackoverflow.com/questions/4241798/how-to-increase-font-size-in-a-plot-in-r
+
+# Calculate standard deviation
+sd(cor_matrix) 
+
+# Generate absolute values for all correlation r-values. This matrix will be binarized
+binary<-abs(cor_matrix) 
+
+# Set r-value thresold to SD for binarisation
+thresh<-0.24
+binary[which(binary>thresh)]<-1 # Set any values greater than the threshold to 1
+binary[which(binary!=1)]<-0 # Set any values which aren't 1s as 0s 
+
+# Hypernetwork generation and visualisation
+hyp<-binary%*%t(binary) # Generate the hypernetwork by multiplying the binary matrix by the transpose of itself. ('%*%' is the operator for matrix multiplication ). This represents the adjacency matrix
+
+# Generate heatmap (source for margin correction: https://stackoverflow.com/questions/21427863/how-to-add-more-margin-to-a-heatmap-2-plot-with-the-png-device)
+# Further info on heatmap.2 function: https://www.rdocumentation.org/packages/gplots/versions/3.1.1/topics/heatmap.2
+tiff("Hypernetwork heatmap of MCTs_r-value threshold of 0.24_Birnbaum dataset_v2.tiff", units = "in", width = 10, height = 7, res=300)
+hm<-heatmap.2(hyp, cexRow=1, cexCol=1, margins=c(10,10), srtCol=45, trace="none", labRow=as.expression(lapply(rownames(hyp), function(a) bquote(italic(.(a))))),) # Generate a heatmap from the hypernetwork matrix, save the heatmap object as it contains dendrograms.Exclude the trace which aims to separates rows and columns
+dev.off()
+
+# Customise heatmap axes labels
+tiff("Hypernetwork heatmap of MCTs_r-value threshold of 0.24_Birnbaum dataset.tiff", units = "in", width = 10, height = 7, res=300)
+
+hm<-heatmap.2(hyp, cexRow=5, cexCol=5, margins=c(2,2), trace="none", xlab = "Differentially expressed MCT genes in validation dataset", ylab = "Differentially expressed MCT genes in validation dataset", labRow = FALSE, labCol = FALSE)
+dev.off()
+
+# Create a class hclust
+dendrogram<-as.hclust(hm$rowDendrogram) 
+
+# Cut the dendrogram to generate 2 groups (first dendrogram split)
+ct<-cutree(dendrogram,k = 2) 
+
+# Extract the names of the 1st cluster or central cluster
+central_cluster_genes<-names(ct[which(ct==1)]) 
+#write.csv(central_cluster_genes, "CCG_MCTs_Birnbaum dataset.csv")
+print(central_cluster_genes)
+
+# Extract the differentially expressed genes not in central cluster (2nd cluster)
+Not_central_cluster_genes<-names(ct[which(ct!=1)])
+print(Not_central_cluster_genes)
+#write.csv(Not_central_cluster_genes, "NCG_MCTs_Birnbaum dataset.csv")
+
+# Extract the 'Galois' from the hypernetwork
+# Use the central and not central cluster gene list to subset the binarized correlation matrix 
+galois <- binary[match(central_cluster_genes, rownames(binary)),]
+#galoisNC<-binary[match(Not_central_cluster_genes, rownames(binary)),]
+
+# Compute sum of each column from the galois (total # correlations between the wider trans. and the central cluster)
+percent_corr<-(colSums(galois)/nrow(galois))*100 # % correlations
+ECM_percentage<-percent_corr[match(ECMs_primary$Gene.name,names(percent_corr))]
+ECM_percentage<-na.omit(ECM_percentage)
+write.csv(ECM_percentage, "F:/Latif Lab back up/AYSHE/PDAC/Birnbaum et al._Validation study/ECM percentage.csv")
+
+hist(percent_corr)
+hist(ECM_percentage)
+
+nonECM_percentage<-percent_corr[-na.omit(match(ECMs_primary$Gene.name,names(percent_corr)))]
+wilcox.test(ECM_percentage,nonECM_percentage)
+
+hist(nonECM_percentage)
+mean(nonECM_percentage)
